@@ -1,0 +1,67 @@
+# -----------------------------------------------------------------------------
+# Kafka Connect (Confluent) + Debezium (Oracle/MySQL/SQL Server) + Confluent JDBC Sink
+# -----------------------------------------------------------------------------
+FROM confluentinc/cp-kafka-connect:8.0.0
+
+# ---- Versions (override at build time if needed)
+ARG DEBEZIUM_VERSION=3.2.2.Final
+ARG CONFLUENT_JDBC_VERSION=10.8.4
+
+# ---- Paths
+ENV CONNECT_PLUGIN_PATH=/usr/share/java/connect-plugins 
+
+USER root
+
+# -----------------------------------------------------------------------------
+# Base tools
+# -----------------------------------------------------------------------------
+RUN set -eux; \
+    microdnf -y install tar openssl; \
+    microdnf clean all; \
+    rm -rf /var/cache/{yum,dnf} /var/tmp/* /tmp/*
+
+# -----------------------------------------------------------------------------
+# Debezium Source Connectors
+#   - Oracle (requires ojdbc8.jar and orai18n.jar provided at build context: libs/)
+#   - MySQL
+#   - SQL Server
+# -----------------------------------------------------------------------------
+# Oracle
+RUN set -eux; \
+    mkdir -p "${CONNECT_PLUGIN_PATH}/debezium-connector-oracle"; \
+    curl -fL "https://repo1.maven.org/maven2/io/debezium/debezium-connector-oracle/${DEBEZIUM_VERSION}/debezium-connector-oracle-${DEBEZIUM_VERSION}-plugin.tar.gz" \
+      | tar -xz -C "${CONNECT_PLUGIN_PATH}/debezium-connector-oracle"
+
+# Copy Oracle JDBC deps (provide these files under ./libs in your build context)
+COPY libs/ojdbc8.jar  "${CONNECT_PLUGIN_PATH}/debezium-connector-oracle/"
+COPY libs/orai18n.jar "${CONNECT_PLUGIN_PATH}/debezium-connector-oracle/"
+
+# MySQL
+RUN set -eux; \
+    mkdir -p "${CONNECT_PLUGIN_PATH}/debezium-connector-mysql"; \
+    curl -fL "https://repo1.maven.org/maven2/io/debezium/debezium-connector-mysql/${DEBEZIUM_VERSION}/debezium-connector-mysql-${DEBEZIUM_VERSION}-plugin.tar.gz" \
+      | tar -xz -C "${CONNECT_PLUGIN_PATH}/debezium-connector-mysql"
+
+# SQL Server
+RUN set -eux; \
+    mkdir -p "${CONNECT_PLUGIN_PATH}/debezium-connector-sqlserver"; \
+    curl -fL "https://repo1.maven.org/maven2/io/debezium/debezium-connector-sqlserver/${DEBEZIUM_VERSION}/debezium-connector-sqlserver-${DEBEZIUM_VERSION}-plugin.tar.gz" \
+      | tar -xz -C "${CONNECT_PLUGIN_PATH}/debezium-connector-sqlserver"
+
+# -----------------------------------------------------------------------------
+# Confluent JDBC Sink Connector (copy only jars to plugin.path)
+# -----------------------------------------------------------------------------
+RUN set -eux; \
+    mkdir -p /tmp/jdbc "${CONNECT_PLUGIN_PATH}/kafka-connect-jdbc"; \
+    confluent-hub install --no-prompt --component-dir /tmp/jdbc "confluentinc/kafka-connect-jdbc:${CONFLUENT_JDBC_VERSION}"; \
+    cp -a /tmp/jdbc/confluentinc-kafka-connect-jdbc/lib/*.jar "${CONNECT_PLUGIN_PATH}/kafka-connect-jdbc/"; \
+    rm -rf /tmp/jdbc /var/tmp/* /tmp/*
+
+# -----------------------------------------------------------------------------
+# Entrypoint
+# -----------------------------------------------------------------------------
+COPY --chown=appuser:appuser main.sh /usr/local/bin/main.sh
+RUN chmod 0755 /usr/local/bin/main.sh; sed -i 's/\r$//' /usr/local/bin/main.sh
+
+USER appuser
+CMD ["/usr/local/bin/main.sh"]
