@@ -4,7 +4,7 @@
 FROM confluentinc/cp-kafka-connect:8.0.0
 
 # ---- Versions (override at build time if needed)
-ARG DEBEZIUM_VERSION=3.2.2.Final
+ARG DEBEZIUM_VERSION=3.3.0.Final
 ARG CONFLUENT_JDBC_VERSION=10.8.4
 
 # ---- Paths
