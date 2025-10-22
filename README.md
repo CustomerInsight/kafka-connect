@@ -5,6 +5,11 @@ docker compose를 이용한 kafka connect 스크립트
 - Docker Compose
 - Oracle Source Connector 이용 시 Oracle Database JDBC Driver 필요 [설치링크](https://www.oracle.com/kr/database/technologies/appdev/jdbc-downloads.html)
 
+## PEM 파일 (마운트 경로 고정):
+- /secrets-src/client-cert.pem
+- /secrets-src/client-key.pem
+- /secrets-src/ca-bundle.pem
+
 ## 요구 파라미터
 - KAFKA_URL  
 - SCHEMA_REGISTRY_URL  
